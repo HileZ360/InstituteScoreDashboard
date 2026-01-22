@@ -6,7 +6,7 @@
 
 ## Демонстрация
 
-![Image](https://github.com/user-attachments/assets/fa4dd0ff-9c92-4da3-a125-b6285ef5009c)
+![Image](https://github.com/user-attachments/assets/b8da417c-360e-45a2-82b4-bbaff3f54c6b)
 
 ## Что нужно
 - `uv` (менеджер зависимостей)
