@@ -1,0 +1,15 @@
+# Data files
+*.xlsx
+rating_dashboard_modern.html
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
