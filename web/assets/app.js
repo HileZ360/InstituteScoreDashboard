@@ -142,7 +142,7 @@ function updateRangeLabels() {
   if (el.chartRange) {
     el.chartRange.textContent = range;
   }
-  document.title = `Institute Score — ${range}`;
+  document.title = `Institute Score Dashboard — ${range}`;
 }
 
 async function fetchData(force = false) {
