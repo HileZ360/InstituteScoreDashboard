@@ -39,6 +39,6 @@ http://127.0.0.1:8000/
 
 ## Расположите файлы таблиц, как показано на скриншоте
 
-![Image1]("https://github.com/user-attachments/assets/b67f4a0b-1b0d-4241-aa5a-34096ae87c69)
+![Image](https://github.com/user-attachments/assets/b67f4a0b-1b0d-4241-aa5a-34096ae87c69)
 
 Примечание: графики строятся через Plotly CDN, нужен интернет при первом открытии.
