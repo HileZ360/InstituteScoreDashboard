@@ -1,5 +1,8 @@
 ﻿# Institute Score Dashboard
 
+![Image](https://github.com/user-attachments/assets/caeed385-5cc4-4e13-bd8b-1a60cf85361a)
+
+
 Локальный дашборд для просмотра рейтинга по домашним работам из XLSX.
 
 ## Что нужно
