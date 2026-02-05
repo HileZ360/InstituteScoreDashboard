@@ -26,6 +26,16 @@ uv run uvicorn app.main:app --reload
 http://127.0.0.1:8000/
 ```
 
+## Разработка
+- Проверка, что код компилируется:
+```
+uv run python -m compileall -q app tests
+```
+- Запуск тестов:
+```
+uv run python -m unittest discover -s tests -p "test*.py"
+```
+
 ## Обновление данных
 - Положите/перезапишите XLSX-файлы в корне проекта (`HW01 ... .xlsx`, `HW02 ... .xlsx`, и т.д.)
 - Нажмите кнопку «Обновить XLSX» в интерфейсе
