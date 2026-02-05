@@ -59,49 +59,57 @@
         <div class="help"><span id="minAccLabel">0</span> из <span id="minAccTotal">7</span></div>
       </div>
 
-      <div class="field">
-        <label>Топ-N</label>
-        <select id="topN">
-          <option value="0">Все</option>
-          <option value="10">Топ-10</option>
-          <option value="50">Топ-50</option>
-          <option value="100">Топ-100</option>
-          <option value="200">Топ-200</option>
-        </select>
-      </div>
+      <details class="disclosure" id="advancedFilters">
+        <summary>
+          <span>Дополнительно</span>
+          <span class="disclosure-hint">настройки графиков и ограничений</span>
+        </summary>
+        <div class="disclosure-body">
+          <div class="field">
+            <label>Топ-N</label>
+            <select id="topN">
+              <option value="0">Все</option>
+              <option value="10">Топ-10</option>
+              <option value="50">Топ-50</option>
+              <option value="100">Топ-100</option>
+              <option value="200">Топ-200</option>
+            </select>
+          </div>
 
-      <div class="field">
-        <label>Ось X: вариант ранга</label>
-        <select id="rankMode">
-          <option value="position">Позиция (1..N)</option>
-          <option value="competition">Одинаковый зачет = общий ранг</option>
-          <option value="dense">Ранг по уровням зачета</option>
-        </select>
-        <div class="help">Ранг меняет только ось X. Зачет остается по количеству принятых работ.</div>
-      </div>
+          <div class="field">
+            <label>Ось X: вариант ранга</label>
+            <select id="rankMode">
+              <option value="position">Позиция (1..N)</option>
+              <option value="competition">Одинаковый зачет = общий ранг</option>
+              <option value="dense">Ранг по уровням зачета</option>
+            </select>
+            <div class="help">Ранг меняет только ось X. Зачет остается по количеству принятых работ.</div>
+          </div>
 
-      <div class="field">
-        <label>Окраска точек</label>
-        <select id="colorMode">
-          <option value="status" selected>По статусу</option>
-          <option value="accepted">По числу зачетов</option>
-        </select>
-      </div>
+          <div class="field">
+            <label>Окраска точек</label>
+            <select id="colorMode">
+              <option value="status" selected>По статусу</option>
+              <option value="accepted">По числу зачетов</option>
+            </select>
+          </div>
 
-      <div class="field">
-        <label>Распределение</label>
-        <select id="distMode">
-          <option value="filtered">Текущая выборка</option>
-          <option value="total">Весь набор</option>
-        </select>
-      </div>
+          <div class="field">
+            <label>Распределение</label>
+            <select id="distMode">
+              <option value="filtered">Текущая выборка</option>
+              <option value="total">Весь набор</option>
+            </select>
+          </div>
 
-      <div class="field">
-        <label>Подсветка сравнения</label>
-        <div class="btn-row">
-          <button id="btnHighlight" class="btn">Подсветка: включена</button>
+          <div class="field">
+            <label>Подсветка сравнения</label>
+            <div class="btn-row">
+              <button id="btnHighlight" class="btn">Подсветка: включена</button>
+            </div>
+          </div>
         </div>
-      </div>
+      </details>
 
       <div class="footnote">
         Обновление из XLSX работает без сервера баз данных — просто перезапишите файлы и нажмите «Обновить».
@@ -133,37 +141,72 @@
       </div>
     </section>
 
-    <section class="chart chart--big">
+    <section class="chart chart--table" style="--delay: 0.22s;">
       <header class="chart-head">
         <div>
-          <div class="chart-title">Распределение по рангу и зачету</div>
-          <div class="chart-sub">Клик по точке открывает карточку студента.</div>
+          <div class="chart-title">Рейтинг</div>
+          <div class="chart-sub">Клик по строке выбирает студента. Кнопка “+” добавляет/удаляет из сравнения.</div>
         </div>
-        <div id="chartMeta" class="chart-meta">обновлено: —</div>
+        <div>
+          <div id="chartMeta" class="chart-meta">обновлено: —</div>
+          <div id="tableMeta" class="chart-meta">—</div>
+        </div>
       </header>
-      <div id="plotScatter" class="plot"></div>
+      <div class="table-wrap">
+        <table class="table" aria-label="Рейтинг студентов">
+          <thead>
+          <tr>
+            <th class="col-rank">#</th>
+            <th class="col-name">ФИО</th>
+            <th class="col-acc">Зачтено</th>
+            <th class="col-status">Статус</th>
+            <th class="col-act" aria-label="Сравнение"></th>
+          </tr>
+          </thead>
+          <tbody id="ratingTbody"></tbody>
+        </table>
+      </div>
     </section>
 
-    <section class="chart-grid">
-      <section class="chart">
-        <header class="chart-head">
-          <div>
-            <div class="chart-title">Срез по количеству зачетов</div>
-            <div class="chart-sub">Показывает распределение студентов по 0..N.</div>
-          </div>
-        </header>
-        <div id="plotDist" class="plot"></div>
-      </section>
-      <section class="chart">
-        <header class="chart-head">
-          <div>
-            <div class="chart-title">Сравнение динамики</div>
-            <div class="chart-sub">Кумулятивный зачет по <span id="chartRange">HW</span>.</div>
-          </div>
-        </header>
-        <div id="plotCompare" class="plot"></div>
-      </section>
+    <section class="chart chart--compare" style="--delay: 0.26s;">
+      <header class="chart-head">
+        <div>
+          <div class="chart-title">Сравнение динамики</div>
+          <div class="chart-sub">Кумулятивный зачет по <span id="chartRange">HW</span>. Добавляйте людей справа или через “+” в таблице.</div>
+        </div>
+      </header>
+      <div id="plotCompare" class="plot plot--compare"></div>
     </section>
+
+    <details class="insights" id="insights" style="--delay: 0.30s;">
+      <summary>
+        <div class="insights-summary">
+          <div class="insights-title">Инсайты</div>
+          <div class="insights-sub">Графики для точечного анализа (scatter + распределение).</div>
+        </div>
+        <div class="pill">открыть</div>
+      </summary>
+      <div class="insights-body">
+        <section class="chart chart--big">
+          <header class="chart-head">
+            <div>
+              <div class="chart-title">Распределение по рангу и зачету</div>
+              <div class="chart-sub">Клик по точке открывает карточку студента.</div>
+            </div>
+          </header>
+          <div id="plotScatter" class="plot"></div>
+        </section>
+        <section class="chart">
+          <header class="chart-head">
+            <div>
+              <div class="chart-title">Срез по количеству зачетов</div>
+              <div class="chart-sub">Распределение студентов по 0..N.</div>
+            </div>
+          </header>
+          <div id="plotDist" class="plot"></div>
+        </section>
+      </div>
+    </details>
   </main>
 
   <aside class="panel panel-right" style="--delay: 0.3s;">

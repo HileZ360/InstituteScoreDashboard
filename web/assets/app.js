@@ -14,6 +14,8 @@ const state = {
   selected: null,
   compare: new Set(),
   plotBound: false,
+  tableBound: false,
+  insightsOpen: false,
 };
 
 const el = {
@@ -44,6 +46,9 @@ const el = {
   metaStudents: document.getElementById("metaStudents"),
   metaFiles: document.getElementById("metaFiles"),
   chartMeta: document.getElementById("chartMeta"),
+  tableMeta: document.getElementById("tableMeta"),
+  ratingTbody: document.getElementById("ratingTbody"),
+  insights: document.getElementById("insights"),
   titleRange: document.getElementById("titleRange"),
   chartRange: document.getElementById("chartRange"),
   kTotal: document.getElementById("kTotal"),
@@ -507,7 +512,7 @@ function renderCompare() {
   const layout = {
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
-    height: 300,
+    height: 360,
     margin: { l: 50, r: 20, t: 25, b: 45 },
     legend: {
       orientation: "h",
@@ -543,6 +548,76 @@ function statusClass(status) {
   if (status === "средние показатели") return "mid";
   if (status === "низкие показатели") return "bad";
   return "bad";
+}
+
+function statusShortLabel(status) {
+  if (status === "хорошие показатели") return "хорошие";
+  if (status === "средние показатели") return "средние";
+  if (status === "низкие показатели") return "низкие";
+  return status || "—";
+}
+
+function renderTable(arr) {
+  if (!el.ratingTbody) return;
+  if (el.tableMeta) {
+    el.tableMeta.textContent = `показано: ${arr.length} / ${state.students.length}`;
+  }
+
+  if (!arr.length) {
+    el.ratingTbody.innerHTML = `<tr><td class="table-empty" colspan="5">Ничего не найдено по текущим фильтрам.</td></tr>`;
+  } else {
+    el.ratingTbody.innerHTML = arr
+      .map((s) => {
+        const selected = state.selected?.name === s.name;
+        const inCompare = state.compare.has(s.name);
+        const cls = statusClass(s.status);
+        const label = statusShortLabel(s.status);
+        return `
+        <tr data-name="${escHtml(s.name)}" data-selected="${selected}" data-compare="${inCompare}">
+          <td class="col-rank">${s.rank}</td>
+          <td class="col-name">
+            <div class="table-name">${escHtml(s.name)}</div>
+            <div class="table-sub">${s.accepted}/${state.hwCount} (${s.percent}%)</div>
+          </td>
+          <td class="col-acc"><b>${s.accepted}</b> / ${state.hwCount}</td>
+          <td class="col-status">
+            <span class="status-pill" title="${escHtml(s.status)}">
+              <span class="dot ${cls}"></span>${escHtml(label)}
+            </span>
+          </td>
+          <td class="col-act">
+            <button class="mini" type="button" data-action="toggle-compare" data-name="${escHtml(
+              s.name
+            )}" data-on="${inCompare}" aria-label="Добавить/удалить из сравнения">${
+          inCompare ? "✓" : "+"
+        }</button>
+          </td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  if (!state.tableBound) {
+    el.ratingTbody.addEventListener("click", (ev) => {
+      const btn = ev.target.closest('button[data-action="toggle-compare"]');
+      if (btn) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const name = btn.getAttribute("data-name");
+        if (!name) return;
+        if (state.compare.has(name)) state.compare.delete(name);
+        else state.compare.add(name);
+        saveCompare();
+        render();
+        return;
+      }
+      const row = ev.target.closest("tr[data-name]");
+      if (!row) return;
+      const name = row.getAttribute("data-name");
+      if (name) setSelectedByName(name);
+    });
+    state.tableBound = true;
+  }
 }
 
 function renderDetail() {
@@ -630,13 +705,16 @@ function render() {
   el.kFiltered.textContent = String(stats.n);
   el.kMean.textContent = stats.n ? stats.mean.toFixed(2) : "—";
   el.kGoodShare.textContent = stats.n ? `${(stats.goodShare * 100).toFixed(1)}%` : "—";
-  el.kFilteredSub.textContent = `мин=${state.minAccepted}, статусы=${[...state.statuses].join(
-    ", "
-  )}`;
+  const bits = [`мин=${state.minAccepted}`, `статусы=${state.statuses.size}/3`];
+  if (state.topN) bits.splice(1, 0, `топ=${state.topN}`);
+  el.kFilteredSub.textContent = bits.join(", ");
 
-  renderScatter(arr);
-  renderDist(arr);
+  renderTable(arr);
   renderCompare();
+  if (state.insightsOpen) {
+    renderScatter(arr);
+    renderDist(arr);
+  }
   renderDetail();
   renderCompareList();
 }
@@ -879,6 +957,14 @@ document.addEventListener("keydown", (e) => {
     el.q.focus();
   }
 });
+
+if (el.insights) {
+  state.insightsOpen = el.insights.open;
+  el.insights.addEventListener("toggle", () => {
+    state.insightsOpen = el.insights.open;
+    render();
+  });
+}
 
 loadCompare();
 loadTheme();
