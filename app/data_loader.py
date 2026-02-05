@@ -131,26 +131,31 @@ def _find_header(row: tuple[object, ...]) -> tuple[int | None, int | None]:
 
 def load_hw_results(hw: HwFile) -> dict[str, dict[str, object]]:
     wb = openpyxl.load_workbook(hw.path, data_only=True, read_only=True)
-    ws = wb.active
-    fio_idx = None
-    res_idx = None
-    results: dict[str, dict[str, object]] = {}
-    for row in ws.iter_rows(values_only=True):
-        if fio_idx is None or res_idx is None:
-            fio_idx, res_idx = _find_header(row)
-            if fio_idx is not None and res_idx is not None:
+
+    try:
+        ws = wb.active
+        fio_idx = None
+        res_idx = None
+        results: dict[str, dict[str, object]] = {}
+        for row in ws.iter_rows(values_only=True):
+            if fio_idx is None or res_idx is None:
+                fio_idx, res_idx = _find_header(row)
+                if fio_idx is not None and res_idx is not None:
+                    continue
+            if fio_idx is None or res_idx is None:
                 continue
-        if fio_idx is None or res_idx is None:
-            continue
-        if fio_idx >= len(row):
-            continue
-        name = _clean_name(row[fio_idx])
-        if _is_noise_name(name):
-            continue
-        raw_val = row[res_idx] if res_idx < len(row) else None
-        value, raw = _parse_result(raw_val)
-        results[name] = {"value": value, "raw": raw}
-    return results
+            if fio_idx >= len(row):
+                continue
+            name = _clean_name(row[fio_idx])
+            if _is_noise_name(name):
+                continue
+            raw_val = row[res_idx] if res_idx < len(row) else None
+            value, raw = _parse_result(raw_val)
+            results[name] = {"value": value, "raw": raw}
+        return results
+    finally:
+        # Ensure file handles are released (especially important for refresh loops).
+        wb.close()
 
 
 def _failed_first_n(per_hw: list[int | None], n: int) -> bool:
