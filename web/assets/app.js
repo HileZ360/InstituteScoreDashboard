@@ -11,11 +11,13 @@ const state = {
   colorMode: "status",
   distMode: "filtered",
   highlightOn: true,
+  hwFilter: null, // { idx: number, val: 1|0|null }
   selected: null,
   compare: new Set(),
   plotBound: false,
   tableBound: false,
   insightsOpen: false,
+  hwCardsBound: false,
 };
 
 const el = {
@@ -49,6 +51,9 @@ const el = {
   tableMeta: document.getElementById("tableMeta"),
   ratingTbody: document.getElementById("ratingTbody"),
   insights: document.getElementById("insights"),
+  banner: document.getElementById("banner"),
+  hwCards: document.getElementById("hwCards"),
+  hwFilterPill: document.getElementById("hwFilterPill"),
   titleRange: document.getElementById("titleRange"),
   chartRange: document.getElementById("chartRange"),
   kTotal: document.getElementById("kTotal"),
@@ -161,6 +166,46 @@ async function fetchData(force = false) {
   applyData(data);
 }
 
+function hideBanner() {
+  if (!el.banner) return;
+  el.banner.style.display = "none";
+  el.banner.innerHTML = "";
+  el.banner.removeAttribute("data-kind");
+}
+
+function showBanner(kind, title, bodyHtml = "") {
+  if (!el.banner) return;
+  el.banner.setAttribute("data-kind", kind);
+  el.banner.innerHTML = `
+    <div class="banner-head">
+      <div class="banner-title">${escHtml(title)}</div>
+      <button id="bannerClose" class="banner-close" type="button" aria-label="Скрыть сообщение">×</button>
+    </div>
+    <div class="banner-body">${bodyHtml}</div>
+  `;
+  el.banner.style.display = "block";
+  const closeBtn = document.getElementById("bannerClose");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => hideBanner());
+  }
+}
+
+function showWarnings(warnings) {
+  const list = warnings
+    .slice(0, 10)
+    .map((w) => `<li>${escHtml(w)}</li>`)
+    .join("");
+  const extra =
+    warnings.length > 10
+      ? `<div class="help">Еще предупреждений: ${warnings.length - 10}</div>`
+      : "";
+  showBanner(
+    "warn",
+    "Есть проблемы с XLSX/данными",
+    `<div>Проверьте файлы и нажмите «Обновить XLSX».</div><ul>${list}</ul>${extra}`
+  );
+}
+
 function applyData(data) {
   state.data = data;
   state.students = data.students || [];
@@ -187,6 +232,10 @@ function applyData(data) {
   });
   saveCompare();
 
+  const warnings = data.meta?.warnings;
+  if (Array.isArray(warnings) && warnings.length) showWarnings(warnings);
+  else hideBanner();
+
   render();
 }
 
@@ -196,6 +245,14 @@ function applyFilters() {
   );
   if (state.topN && Number(state.topN) > 0) {
     arr = arr.filter((s) => s.rank <= Number(state.topN));
+  }
+  if (state.hwFilter) {
+    const { idx, val } = state.hwFilter;
+    arr = arr.filter((s) => {
+      const v = s.per_hw?.[idx];
+      if (val === null) return v === null || v === undefined;
+      return v === val;
+    });
   }
   return arr;
 }
@@ -557,6 +614,110 @@ function statusShortLabel(status) {
   return status || "—";
 }
 
+function hwFilterLabel(filter) {
+  if (!filter) return "";
+  const hw = state.hws[filter.idx];
+  const hwLabel = hw?.label || `HW${String(filter.idx + 1).padStart(2, "0")}`;
+  const val =
+    filter.val === 1 ? "зачтено" : filter.val === 0 ? "не зачтено" : "нет данных";
+  return `${hwLabel}: ${val}`;
+}
+
+function computeHwSummary(students) {
+  const totals = [];
+  for (let i = 0; i < state.hwCount; i++) {
+    totals.push({ ok: 0, bad: 0, na: 0 });
+  }
+  students.forEach((s) => {
+    for (let i = 0; i < state.hwCount; i++) {
+      const v = s.per_hw?.[i];
+      if (v === 1) totals[i].ok += 1;
+      else if (v === 0) totals[i].bad += 1;
+      else totals[i].na += 1;
+    }
+  });
+  return totals;
+}
+
+function setHwFilter(idx, val) {
+  if (state.hwFilter && state.hwFilter.idx === idx && state.hwFilter.val === val) {
+    state.hwFilter = null;
+  } else {
+    state.hwFilter = { idx, val };
+  }
+  render();
+}
+
+function renderHwCards(arr) {
+  if (!el.hwCards) return;
+  const totals = computeHwSummary(arr);
+  const n = arr.length;
+
+  if (el.hwFilterPill) {
+    if (state.hwFilter) {
+      el.hwFilterPill.style.display = "inline-flex";
+      el.hwFilterPill.textContent = `Фильтр: ${hwFilterLabel(state.hwFilter)} ×`;
+    } else {
+      el.hwFilterPill.style.display = "none";
+      el.hwFilterPill.textContent = "";
+    }
+  }
+
+  el.hwCards.innerHTML = state.hws
+    .map((hw, idx) => {
+      const t = totals[idx] || { ok: 0, bad: 0, na: n };
+      const okP = n ? Math.round((t.ok / n) * 1000) / 10 : 0;
+      const badP = n ? Math.round((t.bad / n) * 1000) / 10 : 0;
+      const naP = Math.max(0, 100 - okP - badP);
+
+      const aOk = state.hwFilter && state.hwFilter.idx === idx && state.hwFilter.val === 1;
+      const aBad = state.hwFilter && state.hwFilter.idx === idx && state.hwFilter.val === 0;
+      const aNa =
+        state.hwFilter && state.hwFilter.idx === idx && state.hwFilter.val === null;
+
+      return `
+        <div class="hw-card" data-hw="${idx}">
+          <div class="hw-card-top">
+            <div class="hw-label">${escHtml(hw.label)}</div>
+            <div class="hw-total">N=${n}</div>
+          </div>
+          <div class="hw-bar" aria-hidden="true">
+            <span class="seg ok" style="width:${okP}%"></span>
+            <span class="seg bad" style="width:${badP}%"></span>
+            <span class="seg na" style="width:${naP}%"></span>
+          </div>
+          <div class="hw-stats">
+            <button class="hw-stat" type="button" data-hw="${idx}" data-val="1" data-active="${aOk}">
+              <span class="hw-stat-left"><span class="dot good"></span>зачтено</span>
+              <b>${t.ok}</b>
+            </button>
+            <button class="hw-stat" type="button" data-hw="${idx}" data-val="0" data-active="${aBad}">
+              <span class="hw-stat-left"><span class="dot bad"></span>не зачтено</span>
+              <b>${t.bad}</b>
+            </button>
+            <button class="hw-stat" type="button" data-hw="${idx}" data-val="na" data-active="${aNa}">
+              <span class="hw-stat-left"><span class="dot na"></span>нет данных</span>
+              <b>${t.na}</b>
+            </button>
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  if (!state.hwCardsBound) {
+    el.hwCards.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button.hw-stat");
+      if (!btn) return;
+      const hw = Number(btn.getAttribute("data-hw"));
+      const valRaw = btn.getAttribute("data-val");
+      if (!Number.isFinite(hw) || hw < 0) return;
+      const val = valRaw === "1" ? 1 : valRaw === "0" ? 0 : null;
+      setHwFilter(hw, val);
+    });
+    state.hwCardsBound = true;
+  }
+}
+
 function renderTable(arr) {
   if (!el.ratingTbody) return;
   if (el.tableMeta) {
@@ -707,8 +868,10 @@ function render() {
   el.kGoodShare.textContent = stats.n ? `${(stats.goodShare * 100).toFixed(1)}%` : "—";
   const bits = [`мин=${state.minAccepted}`, `статусы=${state.statuses.size}/3`];
   if (state.topN) bits.splice(1, 0, `топ=${state.topN}`);
+  if (state.hwFilter) bits.push(hwFilterLabel(state.hwFilter));
   el.kFilteredSub.textContent = bits.join(", ");
 
+  renderHwCards(arr);
   renderTable(arr);
   renderCompare();
   if (state.insightsOpen) {
@@ -844,6 +1007,7 @@ el.btnReset.addEventListener("click", () => {
   el.colorMode.value = "status";
   state.distMode = "filtered";
   el.distMode.value = "filtered";
+  state.hwFilter = null;
   el.q.value = "";
   hideSuggest(el.suggest);
   render();
@@ -882,6 +1046,11 @@ el.btnRefresh.addEventListener("click", async () => {
     await fetchData(true);
   } catch (err) {
     console.error(err);
+    showBanner(
+      "error",
+      "Не удалось обновить данные",
+      "<div>Проверьте XLSX и попробуйте еще раз.</div>"
+    );
   } finally {
     el.btnRefresh.disabled = false;
     el.btnRefresh.textContent = "Обновить XLSX";
@@ -966,8 +1135,20 @@ if (el.insights) {
   });
 }
 
+if (el.hwFilterPill) {
+  el.hwFilterPill.addEventListener("click", () => {
+    state.hwFilter = null;
+    render();
+  });
+}
+
 loadCompare();
 loadTheme();
 fetchData().catch((err) => {
   console.error(err);
+  showBanner(
+    "error",
+    "Не удалось загрузить данные",
+    "<div>Проверьте, что сервер запущен, и обновите страницу.</div>"
+  );
 });

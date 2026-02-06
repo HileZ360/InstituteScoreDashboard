@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from hashlib import sha1
 from pathlib import Path
 import re
@@ -136,11 +136,13 @@ def load_hw_results(hw: HwFile) -> dict[str, dict[str, object]]:
         ws = wb.active
         fio_idx = None
         res_idx = None
+        header_found = False
         results: dict[str, dict[str, object]] = {}
         for row in ws.iter_rows(values_only=True):
             if fio_idx is None or res_idx is None:
                 fio_idx, res_idx = _find_header(row)
                 if fio_idx is not None and res_idx is not None:
+                    header_found = True
                     continue
             if fio_idx is None or res_idx is None:
                 continue
@@ -152,6 +154,10 @@ def load_hw_results(hw: HwFile) -> dict[str, dict[str, object]]:
             raw_val = row[res_idx] if res_idx < len(row) else None
             value, raw = _parse_result(raw_val)
             results[name] = {"value": value, "raw": raw}
+        if not header_found:
+            raise ValueError(
+                "Не найдены колонки ФИО и Результат (или Статус/Оценка) в первой таблице."
+            )
         return results
     finally:
         # Ensure file handles are released (especially important for refresh loops).
@@ -190,10 +196,13 @@ def _signature(hw_files: list[HwFile]) -> str:
 
 def build_data(base_dir: Path, hw_files: list[HwFile] | None = None) -> dict[str, object]:
     hw_files = hw_files or discover_hw_files(base_dir)
+    generated_at = (
+        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    )
     if not hw_files:
         return {
             "meta": {
-                "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                "generated_at": generated_at,
                 "hw_count": 0,
                 "signature": "empty",
                 "source_files": [],
@@ -203,7 +212,14 @@ def build_data(base_dir: Path, hw_files: list[HwFile] | None = None) -> dict[str
             "students": [],
         }
 
-    results_by_hw = [load_hw_results(hw) for hw in hw_files]
+    warnings: list[str] = []
+    results_by_hw = []
+    for hw in hw_files:
+        try:
+            results_by_hw.append(load_hw_results(hw))
+        except Exception as exc:
+            warnings.append(f"{hw.label} ({hw.path.name}): {exc}")
+            results_by_hw.append({})
     all_names = set()
     for result in results_by_hw:
         all_names.update(result.keys())
@@ -259,10 +275,11 @@ def build_data(base_dir: Path, hw_files: list[HwFile] | None = None) -> dict[str
 
     return {
         "meta": {
-            "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "generated_at": generated_at,
             "hw_count": hw_count,
             "signature": _signature(hw_files),
             "source_files": [hw.path.name for hw in hw_files],
+            "warnings": warnings,
         },
         "hws": hws,
         "students": students,
