@@ -18,6 +18,8 @@ const state = {
   tableBound: false,
   insightsOpen: false,
   hwCardsBound: false,
+  bannerHideT: null,
+  pillHideT: null,
 };
 
 const el = {
@@ -168,13 +170,28 @@ async function fetchData(force = false) {
 
 function hideBanner() {
   if (!el.banner) return;
-  el.banner.style.display = "none";
-  el.banner.innerHTML = "";
-  el.banner.removeAttribute("data-kind");
+  if (state.bannerHideT) {
+    clearTimeout(state.bannerHideT);
+    state.bannerHideT = null;
+  }
+  if (el.banner.style.display === "none") return;
+  el.banner.classList.add("is-closing");
+  state.bannerHideT = setTimeout(() => {
+    el.banner.style.display = "none";
+    el.banner.innerHTML = "";
+    el.banner.removeAttribute("data-kind");
+    el.banner.classList.remove("is-closing");
+    state.bannerHideT = null;
+  }, 220);
 }
 
 function showBanner(kind, title, bodyHtml = "") {
   if (!el.banner) return;
+  if (state.bannerHideT) {
+    clearTimeout(state.bannerHideT);
+    state.bannerHideT = null;
+  }
+  el.banner.classList.remove("is-closing");
   el.banner.setAttribute("data-kind", kind);
   el.banner.innerHTML = `
     <div class="banner-head">
@@ -188,6 +205,39 @@ function showBanner(kind, title, bodyHtml = "") {
   if (closeBtn) {
     closeBtn.addEventListener("click", () => hideBanner());
   }
+}
+
+function showHwFilterPill(text) {
+  if (!el.hwFilterPill) return;
+  if (state.pillHideT) {
+    clearTimeout(state.pillHideT);
+    state.pillHideT = null;
+  }
+  el.hwFilterPill.textContent = text;
+  if (el.hwFilterPill.style.display === "none") {
+    el.hwFilterPill.style.display = "inline-flex";
+  }
+  // Defer class add so CSS transition can run.
+  requestAnimationFrame(() => {
+    el.hwFilterPill.classList.add("is-visible");
+  });
+}
+
+function hideHwFilterPill() {
+  if (!el.hwFilterPill) return;
+  if (state.pillHideT) {
+    clearTimeout(state.pillHideT);
+    state.pillHideT = null;
+  }
+  if (el.hwFilterPill.style.display === "none") return;
+  el.hwFilterPill.classList.remove("is-visible");
+  state.pillHideT = setTimeout(() => {
+    if (!el.hwFilterPill.classList.contains("is-visible")) {
+      el.hwFilterPill.style.display = "none";
+      el.hwFilterPill.textContent = "";
+    }
+    state.pillHideT = null;
+  }, 180);
 }
 
 function showWarnings(warnings) {
@@ -655,11 +705,9 @@ function renderHwCards(arr) {
 
   if (el.hwFilterPill) {
     if (state.hwFilter) {
-      el.hwFilterPill.style.display = "inline-flex";
-      el.hwFilterPill.textContent = `Фильтр: ${hwFilterLabel(state.hwFilter)} ×`;
+      showHwFilterPill(`Фильтр: ${hwFilterLabel(state.hwFilter)} ×`);
     } else {
-      el.hwFilterPill.style.display = "none";
-      el.hwFilterPill.textContent = "";
+      hideHwFilterPill();
     }
   }
 
@@ -714,6 +762,26 @@ function renderHwCards(arr) {
       const val = valRaw === "1" ? 1 : valRaw === "0" ? 0 : null;
       setHwFilter(hw, val);
     });
+
+    el.hwCards.addEventListener("pointerover", (ev) => {
+      const btn = ev.target.closest("button.hw-stat");
+      if (!btn) return;
+      const card = btn.closest(".hw-card");
+      if (!card) return;
+      const valRaw = btn.getAttribute("data-val");
+      const seg = valRaw === "1" ? "ok" : valRaw === "0" ? "bad" : "na";
+      card.setAttribute("data-hover-seg", seg);
+    });
+
+    el.hwCards.addEventListener("pointerout", (ev) => {
+      const btn = ev.target.closest("button.hw-stat");
+      if (!btn) return;
+      if (btn.contains(ev.relatedTarget)) return;
+      const card = btn.closest(".hw-card");
+      if (!card) return;
+      card.removeAttribute("data-hover-seg");
+    });
+
     state.hwCardsBound = true;
   }
 }
