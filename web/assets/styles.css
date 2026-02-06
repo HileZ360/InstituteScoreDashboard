@@ -264,6 +264,18 @@ h2 {
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.10);
 }
 
+.pill-toggle .when-open {
+  display: none;
+}
+
+details[open] .pill-toggle .when-open {
+  display: inline;
+}
+
+details[open] .pill-toggle .when-closed {
+  display: none;
+}
+
 #hwFilterPill {
   opacity: 0;
   transform: translateY(-2px);
