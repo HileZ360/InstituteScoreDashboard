@@ -8,7 +8,6 @@ class TestLoadHwResultsClosesWorkbook(unittest.TestCase):
 
         class _Ws:
             def iter_rows(self, values_only=True):
-                # Header row -> detect indices and continue
                 yield ("ФИО", "Результат")
                 yield ("Ivan Ivanov", "зач")
 
@@ -56,7 +55,6 @@ class TestLoadHwResultsClosesWorkbook(unittest.TestCase):
 
         class _Ws:
             def iter_rows(self, values_only=True):
-                # No header row, just random content.
                 yield ("abc", "def")
                 yield ("Ivan Ivanov", "зач")
 

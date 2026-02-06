@@ -95,7 +95,6 @@ body::after {
   padding: 20px;
   max-width: 1560px;
   margin: 0 auto;
-  /* Prevent side panels from stretching to the height of the main column. */
   align-items: start;
 }
 
@@ -1008,18 +1007,6 @@ html[data-theme="dark"] .insights {
 details.disclosure[open] .disclosure-body,
 details.insights[open] .insights-body {
   animation: unveil 0.18s ease both;
-}
-
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-@media (max-width: 920px) {
-  .chart-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .chart-head {

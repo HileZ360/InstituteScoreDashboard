@@ -11,7 +11,7 @@ const state = {
   colorMode: "status",
   distMode: "filtered",
   highlightOn: true,
-  hwFilter: null, // { idx: number, val: 1|0|null }
+  hwFilter: null,
   selected: null,
   compare: new Set(),
   plotBound: false,
@@ -217,7 +217,6 @@ function showHwFilterPill(text) {
   if (el.hwFilterPill.style.display === "none") {
     el.hwFilterPill.style.display = "inline-flex";
   }
-  // Defer class add so CSS transition can run.
   requestAnimationFrame(() => {
     el.hwFilterPill.classList.add("is-visible");
   });

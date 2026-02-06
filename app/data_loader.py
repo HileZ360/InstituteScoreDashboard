@@ -160,7 +160,6 @@ def load_hw_results(hw: HwFile) -> dict[str, dict[str, object]]:
             )
         return results
     finally:
-        # Ensure file handles are released (especially important for refresh loops).
         wb.close()
 
 
