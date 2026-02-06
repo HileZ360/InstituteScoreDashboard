@@ -181,16 +181,6 @@
       </div>
     </section>
 
-    <section class="chart chart--compare" style="--delay: 0.26s;">
-      <header class="chart-head">
-        <div>
-          <div class="chart-title">Сравнение динамики</div>
-          <div class="chart-sub">Кумулятивный зачет по <span id="chartRange">HW</span>. Добавляйте людей справа или через “+” в таблице.</div>
-        </div>
-      </header>
-      <div id="plotCompare" class="plot plot--compare"></div>
-    </section>
-
     <details class="insights" id="insights" style="--delay: 0.30s;">
       <summary>
         <div class="insights-summary">
@@ -241,12 +231,16 @@
       <div class="compare-head">
         <div>
           <div class="compare-title">Сравнение</div>
-          <div class="compare-sub">Добавьте несколько людей и сравните с общей кривой.</div>
+          <div class="compare-sub">Кумулятивный зачет по <span id="chartRange">HW</span>. Добавляйте людей ниже или через “+” в таблице.</div>
         </div>
         <div class="compare-actions">
           <button id="btnAddCompare" class="btn primary" disabled>Добавить выбранного</button>
           <button id="btnClearCompare" class="btn">Очистить</button>
         </div>
+      </div>
+
+      <div class="compare-item compare-plot">
+        <div id="plotCompare" class="plot plot--compare"></div>
       </div>
 
       <div class="field">

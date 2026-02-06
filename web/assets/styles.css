@@ -95,6 +95,8 @@ body::after {
   padding: 20px;
   max-width: 1560px;
   margin: 0 auto;
+  /* Prevent side panels from stretching to the height of the main column. */
+  align-items: start;
 }
 
 @media (max-width: 1200px) {
