@@ -6,7 +6,11 @@
 
 ## Демонстрация
 
+## 1-я public версия дизайна
 ![Image](https://github.com/user-attachments/assets/b8da417c-360e-45a2-82b4-bbaff3f54c6b)
+
+## 2-я public версия дизайна (текущая)
+![Image](https://github.com/user-attachments/assets/40e1dade-eb47-408c-a4bc-052be550dae8)
 
 ## Что нужно
 - `uv` (менеджер зависимостей)
