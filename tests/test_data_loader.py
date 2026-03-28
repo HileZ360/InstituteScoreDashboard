@@ -9,7 +9,7 @@ class TestLoadHwResultsClosesWorkbook(unittest.TestCase):
         class _Ws:
             def iter_rows(self, values_only=True):
                 yield ("ФИО", "Результат")
-                yield ("Ivan Ivanov", "зач")
+                yield ("Иван Иванов", "зач")
 
         class _Wb:
             def __init__(self):
@@ -25,7 +25,7 @@ class TestLoadHwResultsClosesWorkbook(unittest.TestCase):
             out = data_loader.load_hw_results(hw)
 
         self.assertTrue(wb.closed)
-        self.assertIn("Ivan Ivanov", out)
+        self.assertIn("Иван Иванов", out)
 
     def test_closes_workbook_on_exception(self) -> None:
         from app import data_loader
@@ -56,7 +56,7 @@ class TestLoadHwResultsClosesWorkbook(unittest.TestCase):
         class _Ws:
             def iter_rows(self, values_only=True):
                 yield ("abc", "def")
-                yield ("Ivan Ivanov", "зач")
+                yield ("Иван Иванов", "зач")
 
         class _Wb:
             def __init__(self):
@@ -73,6 +73,68 @@ class TestLoadHwResultsClosesWorkbook(unittest.TestCase):
                 data_loader.load_hw_results(hw)
 
         self.assertTrue(wb.closed)
+
+
+class TestWorkbookSheetSupport(unittest.TestCase):
+    def test_uses_explicit_sheet_name_when_present(self) -> None:
+        from app import data_loader
+
+        class _Ws:
+            def __init__(self, rows):
+                self._rows = rows
+
+            def iter_rows(self, values_only=True):
+                yield from self._rows
+
+        class _Wb:
+            def __init__(self):
+                self.active = _Ws([("ФИО", "Результат"), ("Не тот студент", "не зач")])
+                self._sheets = {
+                    "ДЗ 02": _Ws([("ФИО", "Результат"), ("Иван Иванов", "зач")])
+                }
+
+            def __getitem__(self, key):
+                return self._sheets[key]
+
+            def close(self):
+                pass
+
+        with mock.patch.object(data_loader.openpyxl, "load_workbook", return_value=_Wb()):
+            hw = data_loader.HwFile(
+                idx=2,
+                label="HW02",
+                path=mock.Mock(),
+                sheet_name="ДЗ 02",
+                date=None,
+                mtime=0.0,
+            )
+            out = data_loader.load_hw_results(hw)
+
+        self.assertIn("Иван Иванов", out)
+        self.assertNotIn("Не тот студент", out)
+
+    def test_discovers_hw_sheets_in_generic_workbook_name(self) -> None:
+        from app import data_loader
+
+        path = data_loader.Path("results.xlsx")
+
+        class _Wb:
+            sheetnames = ["Свод", "ДЗ 01", "ДЗ 02", "Прочее"]
+
+            def close(self):
+                pass
+
+        with mock.patch.object(data_loader.Path, "glob", return_value=[path]):
+            with mock.patch.object(data_loader.Path, "stat", return_value=mock.Mock(st_mtime=123.0)):
+                with mock.patch.object(data_loader, "_extract_date_from_path", return_value=None):
+                    with mock.patch.object(
+                        data_loader.openpyxl, "load_workbook", return_value=_Wb()
+                    ):
+                        hw_files = data_loader.discover_hw_files(data_loader.Path("."))
+
+        self.assertEqual([hw.idx for hw in hw_files], [1, 2])
+        self.assertEqual([hw.sheet_name for hw in hw_files], ["ДЗ 01", "ДЗ 02"])
+        self.assertTrue(all(hw.path == path for hw in hw_files))
 
 
 class TestBuildDataWarnings(unittest.TestCase):

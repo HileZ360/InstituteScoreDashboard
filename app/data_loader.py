@@ -10,6 +10,7 @@ import threading
 import openpyxl
 
 HW_RE = re.compile(r"HW\s*0*(\d+)", re.IGNORECASE)
+SHEET_HW_RE = re.compile(r"(?:^|\b)(?:дз|д/з|hw)\s*0*(\d+)(?:\b|$)", re.IGNORECASE)
 DATE_RE = re.compile(r"(20\d{2})\.(\d{2})\.(\d{2})(?:\s+(\d{2})\s+(\d{2}))?")
 
 
@@ -20,6 +21,7 @@ class HwFile:
     path: Path
     date: datetime | None
     mtime: float
+    sheet_name: str | None = None
 
 
 def _normalize_header(val: object) -> str:
@@ -87,33 +89,51 @@ def _is_noise_name(name: str) -> bool:
     return lowered in {"итого", "всего"} or lowered.startswith("итого ")
 
 
+def _extract_date_from_path(path: Path) -> datetime | None:
+    date_match = DATE_RE.search(path.stem)
+    if not date_match:
+        return None
+    y, m, d, hh, mm = date_match.groups()
+    if hh is None:
+        hh, mm = "00", "00"
+    try:
+        return datetime(int(y), int(m), int(d), int(hh), int(mm))
+    except ValueError:
+        return None
+
+
+def _discover_hw_sheets(path: Path) -> list[tuple[int, str]]:
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    try:
+        found: list[tuple[int, str]] = []
+        for sheet_name in wb.sheetnames:
+            match = SHEET_HW_RE.search(sheet_name)
+            if match:
+                found.append((int(match.group(1)), sheet_name))
+        return found
+    finally:
+        wb.close()
+
+
 def discover_hw_files(base_dir: Path) -> list[HwFile]:
     candidates: dict[int, HwFile] = {}
     for path in base_dir.glob("*.xlsx"):
+        date = _extract_date_from_path(path)
+        mtime = path.stat().st_mtime
         match = HW_RE.search(path.name)
-        if not match:
-            continue
-        idx = int(match.group(1))
-        date = None
-        date_match = DATE_RE.search(path.stem)
-        if date_match:
-            y, m, d, hh, mm = date_match.groups()
-            if hh is None:
-                hh, mm = "00", "00"
-            try:
-                date = datetime(int(y), int(m), int(d), int(hh), int(mm))
-            except ValueError:
-                date = None
-        hw = HwFile(
-            idx=idx,
-            label=f"HW{idx:02d}",
-            path=path,
-            date=date,
-            mtime=path.stat().st_mtime,
-        )
-        prev = candidates.get(idx)
-        if prev is None or hw.mtime > prev.mtime:
-            candidates[idx] = hw
+        discovered = [(int(match.group(1)), None)] if match else _discover_hw_sheets(path)
+        for idx, sheet_name in discovered:
+            hw = HwFile(
+                idx=idx,
+                label=f"HW{idx:02d}",
+                path=path,
+                sheet_name=sheet_name,
+                date=date,
+                mtime=mtime,
+            )
+            prev = candidates.get(idx)
+            if prev is None or hw.mtime > prev.mtime:
+                candidates[idx] = hw
     return [candidates[idx] for idx in sorted(candidates)]
 
 
@@ -133,7 +153,7 @@ def load_hw_results(hw: HwFile) -> dict[str, dict[str, object]]:
     wb = openpyxl.load_workbook(hw.path, data_only=True, read_only=True)
 
     try:
-        ws = wb.active
+        ws = wb[hw.sheet_name] if hw.sheet_name else wb.active
         fio_idx = None
         res_idx = None
         header_found = False
@@ -189,7 +209,9 @@ def _status_for_ratio(accepted: int, total_hw: int, per_hw: list[int | None]) ->
 
 
 def _signature(hw_files: list[HwFile]) -> str:
-    base = "|".join(f"{hw.path.name}:{int(hw.mtime)}" for hw in hw_files)
+    base = "|".join(
+        f"{hw.path.name}:{hw.sheet_name or '-'}:{int(hw.mtime)}" for hw in hw_files
+    )
     return sha1(base.encode("utf-8")).hexdigest()[:12] if base else "empty"
 
 
@@ -205,7 +227,9 @@ def build_data(base_dir: Path, hw_files: list[HwFile] | None = None) -> dict[str
                 "hw_count": 0,
                 "signature": "empty",
                 "source_files": [],
-                "warnings": ["Не найдено ни одного HW*.xlsx файла."],
+                "warnings": [
+                    "Не найдено ни одного Excel-источника с HW в имени файла или листами вида 'ДЗ 01'/'HW01'."
+                ],
             },
             "hws": [],
             "students": [],
